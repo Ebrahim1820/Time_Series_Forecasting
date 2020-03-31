@@ -24,23 +24,18 @@ from bayes_opt import BayesianOptimization
 from tensorflow.keras.callbacks import EarlyStopping
 matplotlib.style.use('ggplot')
 sns.set({'figure.figsize': (11, 4)})
-# fix random seed for reproducibility
+
+
 N_INPUTS = 20
 N_OUTPUTS = 10
-# By default VERBOSE, EPOCHS, BATCHSIZE , N_INPUTS = 2, 200, 100, 10 is good config for
-# predicts N_OUTPUTS = 20, NEURONS= 200
 # By default VERBOSE, EPOCHS, BATCHSIZE , N_INPUTS = 2, 300, 122-125, 20 is good config for
 # predicts N_OUTPUTS = 10 NEURONS= 310
-#VERBOSE, EPOCHS, BATCHSIZE = 2, 300, 123
 VERBOSE= 2
 NEURONS = 300
-TRAIN_NUMBERS = 2200 # number of data for trainig
-DATASET='Now_Power_Q_Phase_2_value'
+TRAIN_NUMBERS = 2200 # number of data for training
+DATASET = 'Now_Power_Q_Phase_2_value'
 
-#epoch=[3]
-batch_size= 123
-#PARAMETERS ={'epochs':epoch[2]}
-PARAMETERS={'epochs':[100], 'batch_size':[123, 124]}
+PARAMETERS = {'epochs': [100], 'batch_size':[123, 124]}
 
 
 def pickle_data_load(path):
@@ -71,7 +66,6 @@ def resampledata_from_second_to_minutes(data):
 
     return min_groups
 
-
 def plot_data(data):
     df = data
     fig, ax = plt.subplots()
@@ -89,10 +83,6 @@ def plot_data(data):
 
     plt.show()
     fig.tight_layout()
-
-
-# df = grap_special_cols(df)
-# evaluate one or more weekly forecasts against expected values
 
 # sumerize scores
 def summerize_scores(name, score, scores):
@@ -126,11 +116,6 @@ def split_dataset_(data, N_OUTPUTS, TRAIN_NUMBERS,DATASET):
     return X_train, y_train, X_test, y_test
 
 
-def make_scaler_(X):
-    x_scaler = MinMaxScaler(feature_range=(0, 1))
-    X_data = x_scaler.fit_transform(X)
-    return X_data, x_scaler
-
 def series_to_supervised(train, N_INPUTS, N_OUTPUTS):
     train = train.ravel()
     X, y = list(), list()
@@ -150,31 +135,6 @@ def series_to_supervised(train, N_INPUTS, N_OUTPUTS):
         in_start += 1
 
     return np.array(X), np.array(y)
-
-
-def build_model(train, test, N_INPUTS, N_OUTPUTS, VERBOSE, NEURONS):
-    # prepare data and model for training
-    train_X, train_y = series_to_supervised(train, N_INPUTS, N_OUTPUTS)
-    test_X, test_y = series_to_supervised(test, N_INPUTS, N_OUTPUTS)
-    verbose = VERBOSE
-    #epochs, batchsize
-    n_timesteps = train_X.shape[1]
-    n_fetures = train_X.shape[2]
-    n_outputs = train_y.shape[1]
-
-    # Define model
-    model = Sequential()
-    model.add(LSTM(units=NEURONS, activation='relu', input_shape=(n_timesteps, n_fetures)))
-    #model.add(LSTM(100, activation='relu'))
-    #tf.keras.layers.LayerNormalization(axis=-1, epsilon=0.001, center=True , scale=True)
-    model.add(Dense(100, activation='relu'))
-    #model.add(Dropout(0.2))
-    model.add(Dense(N_OUTPUTS))
-    #model.add(Activation('linear'))# n minutes
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    model.fit(train_X, train_y, batch_size=72, epochs=5, verbose=2)
-    # fit network
-    return model, train_X, train_y
 
 
 def model_net():
@@ -246,10 +206,9 @@ def hyp_param_Optimize(train, N_INPUTS,N_OUTPUTS,NEURONS,PARAMETERS):
     return model
 
 def evaluate_model(train, test, N_INPUTS, N_OUTPUTS, NEURONS,PARAMETERS):#
-    #model, train_X, train_y = build_model(train, test, N_INPUTS, N_OUTPUTS, VERBOSE, NEURONS)
     # find best hyperparameters
     model = hyp_param_Optimize(train, N_INPUTS,N_OUTPUTS,NEURONS,PARAMETERS)
-    #y_pred = model.predict(X_test)
+
     history = [x for x in train]
 
     # walk-forward validation over each hour
@@ -276,7 +235,7 @@ def evaluate_model(train, test, N_INPUTS, N_OUTPUTS, NEURONS,PARAMETERS):#
 
 if __name__ == '__main__':
     np.random.seed(7)
-    PATH = 'D:/Code/Data_Sensors/Time_Series/sensor_test/Power_Q_Phase.csv'
+    PATH = '../Power_Q_Phase.csv'
     df = pd.read_csv(PATH, header=0, parse_dates=[0], index_col=0)
 
     min_groups = resampledata_from_second_to_minutes(df)
@@ -299,9 +258,9 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    minuts = range(N_OUTPUTS)
-    minuts = list(minuts)
-    plt.plot(minuts, scores, '-.', color='red', label='RMSE')
+    minutes = range(N_OUTPUTS)
+    minutes = list(minutes)
+    plt.plot(minutes, scores, '-.', color='red', label='RMSE')
     plt.xlabel('Time')
     plt.ylabel('RMSE_Values')
     plt.legend(loc='upper right')
