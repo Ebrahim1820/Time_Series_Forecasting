@@ -25,9 +25,9 @@ from tensorflow.keras.callbacks import EarlyStopping
 matplotlib.style.use('ggplot')
 sns.set({'figure.figsize': (11, 4)})
 
-
-N_INPUTS = 20
-N_OUTPUTS = 10
+# Define parameters 
+N_INPUTS = 20 # Number of input(Minutes) for learning
+N_OUTPUTS = 10 # number of output(Minutes) for forecating
 # By default VERBOSE, EPOCHS, BATCHSIZE , N_INPUTS = 2, 300, 122-125, 20 is good config for
 # predicts N_OUTPUTS = 10 NEURONS= 310
 VERBOSE= 2
@@ -35,9 +35,10 @@ NEURONS = 300
 TRAIN_NUMBERS = 2200 # number of data for training
 DATASET = 'Now_Power_Q_Phase_2_value'
 
+# parameters for find best match for optimize
 PARAMETERS = {'epochs': [100], 'batch_size':[123, 124]}
 
-
+# if data is packle 
 def pickle_data_load(path):
     # path=('D:/sensor_13050091.pkl','rb')
     Sensor_Data = pickle.load(open(path, 'rb'))
@@ -49,14 +50,14 @@ def pickle_data_load(path):
     df = df.sort_index()
     return df
 
-
+#select sensor data
 def grap_special_cols(df):
     features = ['Now_Power_Q_Phase_1_value', 'Now_Power_Q_Phase_2_value', 'Now_Power_Q_Phase_3_value']
     df = df[features]
     df.to_csv('Power_Q_Phase.csv')
     return df
 
-
+# conver data from seconds to minutes
 def resampledata_from_second_to_minutes(data):
     # first arrange columns 2,1,3 -->1,2,3
     cols = data.columns.tolist()
@@ -90,7 +91,7 @@ def summerize_scores(name, score, scores):
     print('%s: [%.3f] %s' % (name, score, s_scores))
     return name, score, s_scores
 
-
+# split data to test and train data
 def split_dataset_(data, N_OUTPUTS, TRAIN_NUMBERS,DATASET):
 
     print(list(data.columns))
@@ -115,7 +116,7 @@ def split_dataset_(data, N_OUTPUTS, TRAIN_NUMBERS,DATASET):
     X_test, y_test = np.array(X_test), np.array(y_test)
     return X_train, y_train, X_test, y_test
 
-
+# tranform series data to supervise data and feed to LSTM
 def series_to_supervised(train, N_INPUTS, N_OUTPUTS):
     train = train.ravel()
     X, y = list(), list()
@@ -136,23 +137,16 @@ def series_to_supervised(train, N_INPUTS, N_OUTPUTS):
 
     return np.array(X), np.array(y)
 
-
+# LSTM network
 def model_net():
-
     model = Sequential()
     model.add(LSTM(units=NEURONS, activation='relu', input_shape=(N_INPUTS, 1), name="LSTM_1"))
     #model.add(LSTM(100, activation='relu', name='LSTM_2'))
-    # tf.keras.layers.LayerNormalization(axis=-1, epsilon=0.001, center=True , scale=True)
     model.add(Dense(100, activation='relu', name='Dense_1'))
     # model.add(Dropout(0.2))
     model.add(Dense(N_OUTPUTS, name='Dense_2'))
-    # model.add(Activation('linear'))# n minutes
     model.compile(loss='mean_squared_error', optimizer='adam')
-    #monitor = EarlyStopping(monitor='loss', min_delta=1e-3,
-                            #patience=100, verbose=0, mode='auto', restore_best_weights=True)
-    #epochs = monitor.stopped_epoch
-    #epochs_needed.append(epochs)
-    #tf.keras.backend.clear_session()
+
     return model
 
 # make a forecast
@@ -165,7 +159,7 @@ def forecast(model, history, N_INPUTS):
     input_x = data[-N_INPUTS:]
     print(input_x.shape)
     input_x = input_x.reshape((1, len(input_x), 1))
-    # forecast the nexr hour
+    # forecast the nexr minutes
     yhat = model.predict(input_x)
     # we only want the vector forecast
     yhat = yhat[0]
@@ -190,7 +184,9 @@ def evaluate_forecasts(actual_data, forecast_data):
 
     return score, scores
 
+# find be optimize parameter by Grid Search method
 def hyp_param_Optimize(train, N_INPUTS,N_OUTPUTS,NEURONS,PARAMETERS):
+    # convert series to supervise learning data for training
     train_X, train_y = series_to_supervised(train, N_INPUTS, N_OUTPUTS)
     model = KerasRegressor(build_fn=model_net, verbose=2)
     model = GridSearchCV(estimator=model, param_grid= PARAMETERS, n_jobs=1, cv=3)
@@ -208,21 +204,19 @@ def hyp_param_Optimize(train, N_INPUTS,N_OUTPUTS,NEURONS,PARAMETERS):
 def evaluate_model(train, test, N_INPUTS, N_OUTPUTS, NEURONS,PARAMETERS):#
     # find best hyperparameters
     model = hyp_param_Optimize(train, N_INPUTS,N_OUTPUTS,NEURONS,PARAMETERS)
-
     history = [x for x in train]
-
-    # walk-forward validation over each hour
+    # walk-forward validation over each minutes
     predictions = list()
     for i in range(len(test)):
-        # predict the hour
+        # predict the minutes
         yhat_sequence = forecast(model, history, N_INPUTS)
         # store the prediction
         predictions.append(yhat_sequence)
         # get real observation and add to
-        # history for predicting the next hour
+        # history for predicting the next minute
         history.append(test[i, :])  # take each row of test with all values in columns
-    # evaluate prediction minutes for each hour
-
+        
+    # evaluate prediction minutes for each n minutes (10min)
     predictions = np.array(predictions)
     score, scores = evaluate_forecasts(test[:, :], predictions)
 
@@ -237,9 +231,10 @@ if __name__ == '__main__':
     np.random.seed(7)
     PATH = '../Power_Q_Phase.csv'
     df = pd.read_csv(PATH, header=0, parse_dates=[0], index_col=0)
-
+    # convert seconds to minutes
     min_groups = resampledata_from_second_to_minutes(df)
     #plot_data(min_groups)
+    # split data to train and test data
     train, test = split_dataset_(min_groups, N_OUTPUTS, TRAIN_NUMBERS, DATASET)
 
     score, scores, predictions, _ = evaluate_model(train, test, N_INPUTS, N_OUTPUTS, NEURONS,PARAMETERS)
